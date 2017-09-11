@@ -1,8 +1,8 @@
 type Position     = [Double]
 type Speed        = [Double]
+type Acceleration = [Double]
 type Time         = Double
 type Particle     = (Position, Speed, Acceleration, Time)
-type Acceleration = [Double]
 
 verletStep :: (Particle -> Acceleration)
               -> Time
