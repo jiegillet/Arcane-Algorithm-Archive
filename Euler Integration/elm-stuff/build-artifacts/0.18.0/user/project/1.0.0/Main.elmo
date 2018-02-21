@@ -1,0 +1,433 @@
+var _user$project$Main$getPath = function (m) {
+	var _p0 = {
+		ctor: '_Tuple2',
+		_0: _elm_lang$core$Basics$toFloat(m.wHeight),
+		_1: _elm_lang$core$Basics$toFloat(m.wWidth)
+	};
+	var h = _p0._0;
+	var w = _p0._1;
+	var comb = F2(
+		function (x, _p1) {
+			var _p2 = _p1;
+			var _p3 = _p2._0;
+			return {
+				ctor: '_Tuple2',
+				_0: _p3 - m.dt,
+				_1: A2(
+					_elm_lang$core$Basics_ops['++'],
+					_p2._1,
+					A2(
+						_elm_lang$core$Basics_ops['++'],
+						_elm_lang$core$Basics$toString((w * _p3) / 5),
+						A2(
+							_elm_lang$core$Basics_ops['++'],
+							',',
+							A2(
+								_elm_lang$core$Basics_ops['++'],
+								_elm_lang$core$Basics$toString((h / 2) * (1 - (x / 3))),
+								' '))))
+			};
+		});
+	return _elm_lang$core$Tuple$second(
+		A3(
+			_elm_lang$core$List$foldl,
+			comb,
+			{ctor: '_Tuple2', _0: m.t, _1: ''},
+			m.part.pos));
+};
+var _user$project$Main$diffEq = F4(
+	function (x, v, t, dt) {
+		return {ctor: '_Tuple2', _0: x + (v * dt), _1: -2 * x};
+	});
+var _user$project$Main$getV = function (p) {
+	return A2(
+		_elm_lang$core$Maybe$withDefault,
+		0,
+		_elm_lang$core$List$head(
+			function (_) {
+				return _.vel;
+			}(p)));
+};
+var _user$project$Main$getX = function (p) {
+	return A2(
+		_elm_lang$core$Maybe$withDefault,
+		0,
+		_elm_lang$core$List$head(
+			function (_) {
+				return _.pos;
+			}(p)));
+};
+var _user$project$Main$evolve = F3(
+	function (p, t, dt) {
+		var _p4 = A4(
+			_user$project$Main$diffEq,
+			_user$project$Main$getX(p),
+			_user$project$Main$getV(p),
+			t,
+			dt);
+		var x = _p4._0;
+		var v = _p4._1;
+		return _elm_lang$core$Native_Utils.update(
+			p,
+			{
+				pos: {ctor: '::', _0: x, _1: p.pos},
+				vel: {ctor: '::', _0: v, _1: p.vel}
+			});
+	});
+var _user$project$Main$circleParam = function (model) {
+	var _p5 = {
+		ctor: '_Tuple2',
+		_0: _elm_lang$core$Basics$toFloat(model.wHeight),
+		_1: _elm_lang$core$Basics$toFloat(model.wWidth)
+	};
+	var h = _p5._0;
+	var w = _p5._1;
+	return A2(
+		_elm_lang$svg$Svg$circle,
+		{
+			ctor: '::',
+			_0: _elm_lang$svg$Svg_Attributes$cy(
+				_elm_lang$core$Basics$toString(
+					function (x) {
+						return (h / 2) * (1 - (x / 3));
+					}(
+						_user$project$Main$getX(model.part)))),
+			_1: {
+				ctor: '::',
+				_0: _elm_lang$svg$Svg_Attributes$cx(
+					_elm_lang$core$Basics$toString(
+						function (t) {
+							return (w * t) / 5;
+						}(model.t))),
+				_1: {
+					ctor: '::',
+					_0: _elm_lang$svg$Svg_Attributes$r('10'),
+					_1: {ctor: '[]'}
+				}
+			}
+		},
+		{ctor: '[]'});
+};
+var _user$project$Main$Model = F7(
+	function (a, b, c, d, e, f, g) {
+		return {part: a, dt: b, nextDt: c, t: d, status: e, wWidth: f, wHeight: g};
+	});
+var _user$project$Main$Particle = F2(
+	function (a, b) {
+		return {pos: a, vel: b};
+	});
+var _user$project$Main$Running = {ctor: 'Running'};
+var _user$project$Main$Idle = {ctor: 'Idle'};
+var _user$project$Main$Drag = {ctor: 'Drag'};
+var _user$project$Main$SliderUpdate = function (a) {
+	return {ctor: 'SliderUpdate', _0: a};
+};
+var _user$project$Main$viewSlider = _CallumJHays$elm_sliders$Slider$props2view(
+	{
+		ctor: '::',
+		_0: _CallumJHays$elm_sliders$Slider$MinVal(0),
+		_1: {
+			ctor: '::',
+			_0: _CallumJHays$elm_sliders$Slider$MaxVal(1),
+			_1: {
+				ctor: '::',
+				_0: _CallumJHays$elm_sliders$Slider$Step(1.0e-2),
+				_1: {
+					ctor: '::',
+					_0: _CallumJHays$elm_sliders$Slider$onChange(_user$project$Main$SliderUpdate),
+					_1: {ctor: '[]'}
+				}
+			}
+		}
+	});
+var _user$project$Main$GetSize = function (a) {
+	return {ctor: 'GetSize', _0: a};
+};
+var _user$project$Main$getSize = A2(_elm_lang$core$Task$perform, _user$project$Main$GetSize, _elm_lang$window$Window$size);
+var _user$project$Main$init = {
+	ctor: '_Tuple2',
+	_0: A7(
+		_user$project$Main$Model,
+		A2(
+			_user$project$Main$Particle,
+			{
+				ctor: '::',
+				_0: 0.5,
+				_1: {ctor: '[]'}
+			},
+			{
+				ctor: '::',
+				_0: 0,
+				_1: {ctor: '[]'}
+			}),
+		5.0e-2,
+		5.0e-2,
+		0,
+		_user$project$Main$Idle,
+		0,
+		0),
+	_1: _user$project$Main$getSize
+};
+var _user$project$Main$update = F2(
+	function (msg, model) {
+		var _p6 = msg;
+		switch (_p6.ctor) {
+			case 'Start':
+				return {
+					ctor: '_Tuple2',
+					_0: _elm_lang$core$Native_Utils.update(
+						model,
+						{
+							status: _user$project$Main$Running,
+							part: A2(
+								_user$project$Main$Particle,
+								{
+									ctor: '::',
+									_0: 0.5,
+									_1: {ctor: '[]'}
+								},
+								{
+									ctor: '::',
+									_0: -1,
+									_1: {ctor: '[]'}
+								}),
+							t: 0,
+							dt: model.nextDt
+						}),
+					_1: _elm_lang$core$Platform_Cmd$none
+				};
+			case 'Stop':
+				return {
+					ctor: '_Tuple2',
+					_0: _elm_lang$core$Native_Utils.update(
+						model,
+						{status: _user$project$Main$Idle}),
+					_1: _elm_lang$core$Platform_Cmd$none
+				};
+			case 'Tick':
+				var _p7 = model.status;
+				if (_p7.ctor === 'Idle') {
+					return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
+				} else {
+					return (_elm_lang$core$Native_Utils.cmp(model.t, 5) > 0) ? {
+						ctor: '_Tuple2',
+						_0: _elm_lang$core$Native_Utils.update(
+							model,
+							{status: _user$project$Main$Idle}),
+						_1: _elm_lang$core$Platform_Cmd$none
+					} : {
+						ctor: '_Tuple2',
+						_0: _elm_lang$core$Native_Utils.update(
+							model,
+							{
+								part: A3(_user$project$Main$evolve, model.part, model.t, model.dt),
+								t: model.t + model.dt
+							}),
+						_1: _user$project$Main$getSize
+					};
+				}
+			case 'GetSize':
+				var _p8 = _p6._0;
+				return {
+					ctor: '_Tuple2',
+					_0: _elm_lang$core$Native_Utils.update(
+						model,
+						{wWidth: _p8.width, wHeight: _p8.height}),
+					_1: _elm_lang$core$Platform_Cmd$none
+				};
+			case 'SliderUpdate':
+				return {
+					ctor: '_Tuple2',
+					_0: _elm_lang$core$Native_Utils.update(
+						model,
+						{nextDt: _p6._0}),
+					_1: _elm_lang$core$Platform_Cmd$none
+				};
+			default:
+				return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
+		}
+	});
+var _user$project$Main$Tick = function (a) {
+	return {ctor: 'Tick', _0: a};
+};
+var _user$project$Main$subscriptions = function (model) {
+	return _elm_lang$core$Platform_Sub$batch(
+		{
+			ctor: '::',
+			_0: A2(_elm_lang$core$Time$every, model.dt * _elm_lang$core$Time$second, _user$project$Main$Tick),
+			_1: {ctor: '[]'}
+		});
+};
+var _user$project$Main$Stop = {ctor: 'Stop'};
+var _user$project$Main$Start = {ctor: 'Start'};
+var _user$project$Main$view = function (model) {
+	return A2(
+		_elm_lang$html$Html$div,
+		{ctor: '[]'},
+		{
+			ctor: '::',
+			_0: A2(
+				_elm_lang$html$Html$button,
+				{
+					ctor: '::',
+					_0: _elm_lang$html$Html_Events$onClick(_user$project$Main$Start),
+					_1: {ctor: '[]'}
+				},
+				{
+					ctor: '::',
+					_0: _elm_lang$html$Html$text('Start'),
+					_1: {ctor: '[]'}
+				}),
+			_1: {
+				ctor: '::',
+				_0: A2(
+					_elm_lang$html$Html$button,
+					{
+						ctor: '::',
+						_0: _elm_lang$html$Html_Events$onClick(_user$project$Main$Stop),
+						_1: {ctor: '[]'}
+					},
+					{
+						ctor: '::',
+						_0: _elm_lang$html$Html$text('Stop'),
+						_1: {ctor: '[]'}
+					}),
+				_1: {
+					ctor: '::',
+					_0: _user$project$Main$viewSlider,
+					_1: {
+						ctor: '::',
+						_0: A2(
+							_elm_lang$html$Html$div,
+							{ctor: '[]'},
+							{
+								ctor: '::',
+								_0: _elm_lang$html$Html$text(
+									A2(
+										_elm_lang$core$Basics_ops['++'],
+										'y = ',
+										_elm_lang$core$Basics$toString(
+											_user$project$Main$getX(model.part)))),
+								_1: {ctor: '[]'}
+							}),
+						_1: {
+							ctor: '::',
+							_0: A2(
+								_elm_lang$html$Html$div,
+								{ctor: '[]'},
+								{
+									ctor: '::',
+									_0: _elm_lang$html$Html$text(
+										A2(
+											_elm_lang$core$Basics_ops['++'],
+											'v = ',
+											_elm_lang$core$Basics$toString(
+												_user$project$Main$getV(model.part)))),
+									_1: {ctor: '[]'}
+								}),
+							_1: {
+								ctor: '::',
+								_0: A2(
+									_elm_lang$html$Html$div,
+									{ctor: '[]'},
+									{
+										ctor: '::',
+										_0: _elm_lang$html$Html$text(
+											A2(
+												_elm_lang$core$Basics_ops['++'],
+												't = ',
+												_elm_lang$core$Basics$toString(model.t))),
+										_1: {ctor: '[]'}
+									}),
+								_1: {
+									ctor: '::',
+									_0: A2(
+										_elm_lang$html$Html$div,
+										{ctor: '[]'},
+										{
+											ctor: '::',
+											_0: _elm_lang$html$Html$text(
+												A2(
+													_elm_lang$core$Basics_ops['++'],
+													'dt = ',
+													_elm_lang$core$Basics$toString(model.nextDt))),
+											_1: {ctor: '[]'}
+										}),
+									_1: {
+										ctor: '::',
+										_0: A2(
+											_elm_lang$svg$Svg$svg,
+											{
+												ctor: '::',
+												_0: _elm_lang$svg$Svg_Attributes$width(
+													_elm_lang$core$Basics$toString(model.wWidth)),
+												_1: {
+													ctor: '::',
+													_0: _elm_lang$svg$Svg_Attributes$height(
+														_elm_lang$core$Basics$toString(model.wHeight)),
+													_1: {
+														ctor: '::',
+														_0: _elm_lang$svg$Svg_Attributes$stroke('black'),
+														_1: {ctor: '[]'}
+													}
+												}
+											},
+											{
+												ctor: '::',
+												_0: _user$project$Main$circleParam(model),
+												_1: {
+													ctor: '::',
+													_0: A2(
+														_elm_lang$svg$Svg$line,
+														{
+															ctor: '::',
+															_0: _elm_lang$svg$Svg_Attributes$x1('0'),
+															_1: {
+																ctor: '::',
+																_0: _elm_lang$svg$Svg_Attributes$x2(
+																	_elm_lang$core$Basics$toString(model.wWidth)),
+																_1: {
+																	ctor: '::',
+																	_0: _elm_lang$svg$Svg_Attributes$y1(
+																		_elm_lang$core$Basics$toString((model.wHeight / 2) | 0)),
+																	_1: {
+																		ctor: '::',
+																		_0: _elm_lang$svg$Svg_Attributes$y2(
+																			_elm_lang$core$Basics$toString((model.wHeight / 2) | 0)),
+																		_1: {ctor: '[]'}
+																	}
+																}
+															}
+														},
+														{ctor: '[]'}),
+													_1: {
+														ctor: '::',
+														_0: A2(
+															_elm_lang$svg$Svg$polyline,
+															{
+																ctor: '::',
+																_0: _elm_lang$svg$Svg_Attributes$points(
+																	_user$project$Main$getPath(model)),
+																_1: {
+																	ctor: '::',
+																	_0: _elm_lang$svg$Svg_Attributes$fill('none'),
+																	_1: {ctor: '[]'}
+																}
+															},
+															{ctor: '[]'}),
+														_1: {ctor: '[]'}
+													}
+												}
+											}),
+										_1: {ctor: '[]'}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		});
+};
+var _user$project$Main$main = _elm_lang$html$Html$program(
+	{init: _user$project$Main$init, view: _user$project$Main$view, update: _user$project$Main$update, subscriptions: _user$project$Main$subscriptions})();
