@@ -1,14 +1,16 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, button, text)
+import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Time exposing (Time, second)
 import Maybe exposing (withDefault)
 import Window exposing (Size, size)
 import Svg exposing (svg, circle, line, polyline)
-import Svg.Attributes exposing (..)
+import Svg.Attributes exposing (width, height, stroke, x1, x2, y1, y2, cx, cy, r, points, fill)
 import Task exposing (perform)
 import Slider exposing (..)
+import Hex
 
 
 main =
@@ -32,12 +34,8 @@ type alias Model =
     , status : Status
     , wWidth : Int
     , wHeight : Int
+    , history : List ( Time, Time, Particle )
     }
-
-
-type Status
-    = Idle
-    | Running
 
 
 type alias Position =
@@ -50,6 +48,11 @@ type alias Velocity =
 
 type alias Particle =
     { pos : List Position, vel : List Velocity }
+
+
+type Status
+    = Idle
+    | Running
 
 
 getX : Particle -> Position
@@ -68,7 +71,7 @@ getV p =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model (Particle [ 0.5 ] [ 0 ]) 0.05 0.05 0 Idle 0 0, getSize )
+    ( Model (Particle [ 1 ] [ 0 ]) 0.5 0.5 0 Idle 0 0 [], getSize )
 
 
 getSize : Cmd Msg
@@ -95,7 +98,7 @@ update msg model =
         Start ->
             ( { model
                 | status = Running
-                , part = Particle [ 0.5 ] [ -1 ]
+                , part = Particle [ 2 ] [ -4 ]
                 , t = 0
                 , dt = model.nextDt
               }
@@ -112,7 +115,14 @@ update msg model =
 
                 Running ->
                     if model.t > 5 then
-                        ( { model | status = Idle }, Cmd.none )
+                        ( { model
+                            | status = Idle
+                            , part = evolve model.part model.t model.dt
+                            , t = model.t + model.dt
+                            , history = ( model.dt, model.t, model.part ) :: model.history
+                          }
+                        , Cmd.none
+                        )
                     else
                         ( { model
                             | part = evolve model.part model.t model.dt
@@ -133,7 +143,7 @@ update msg model =
 
 diffEq : Position -> Velocity -> Time -> Time -> ( Position, Velocity )
 diffEq x v t dt =
-    ( x + v * dt, -2 * x )
+    ( x + (-2 * x) * dt, -2 * x )
 
 
 evolve : Particle -> Time -> Time -> Particle
@@ -168,24 +178,31 @@ view model =
         , div [] [ text <| "y = " ++ toString (getX model.part) ]
         , div [] [ text <| "v = " ++ toString (getV model.part) ]
         , div [] [ text <| "t = " ++ toString model.t ]
-        , div [] [ text <| "dt = " ++ toString model.nextDt ]
+        , div [ style [ ( "color", gradient model.nextDt ) ] ]
+            [ text <| "dt = " ++ toString model.nextDt ]
         , svg
             [ width (toString model.wWidth)
             , height (toString model.wHeight)
             , stroke "black"
             ]
-            [ circleParam model
-            , line
+            ([ line
                 [ x1 "0"
                 , x2 (toString model.wWidth)
                 , y1 (toString (model.wHeight // 2))
                 , y2 (toString (model.wHeight // 2))
                 ]
                 []
-            , polyline
-                [ points (getPath model), fill "none" ]
+             , line
+                [ x1 (toString (model.wWidth // 20))
+                , x2 (toString (model.wWidth // 20))
+                , y1 "0"
+                , y2 (toString model.wHeight)
+                ]
                 []
-            ]
+             , viewCircle model
+             ]
+                ++ (plotHistory model)
+            )
         ]
 
 
@@ -194,27 +211,64 @@ viewSlider =
     props2view [ MinVal 0, MaxVal 1, Step 0.01, onChange SliderUpdate ]
 
 
-circleParam : Model -> Html Msg
-circleParam model =
+scaleX : Int -> Position -> String
+scaleX h x =
+    toString (toFloat h / 2 * (1 - x / 3))
+
+
+scaleT : Int -> Time -> String
+scaleT w t =
+    toString (toFloat w * (0.05 + t / 5))
+
+
+viewCircle : Model -> Html Msg
+viewCircle m =
+    circle
+        [ cy (scaleX m.wHeight <| withDefault 0 <| List.head <| .pos <| m.part)
+        , cx (scaleT m.wWidth m.t)
+        , r "10"
+        ]
+        []
+
+
+plotPath : Int -> Int -> ( Time, Time, Particle ) -> String
+plotPath w h ( dt, tf, particle ) =
     let
-        ( h, w ) =
-            ( toFloat model.wHeight, toFloat model.wWidth )
-    in
-        circle
-            [ cy (toString <| (\x -> h / 2 * (1 - x / 3)) <| getX model.part)
-            , cx (toString <| (\t -> w * t / 5) <| model.t)
-            , r "10"
-            ]
-            []
-
-
-getPath : Model -> String
-getPath m =
-    let
-        ( h, w ) =
-            ( toFloat m.wHeight, toFloat m.wWidth )
-
         comb x ( t, s ) =
-            ( t - m.dt, s ++ toString (w * t / 5) ++ "," ++ toString (h / 2 * (1 - x / 3)) ++ " " )
+            ( t - dt, s ++ (scaleT w t) ++ "," ++ (scaleX h x) ++ " " )
     in
-        Tuple.second <| List.foldl comb ( m.t, "" ) m.part.pos
+        Tuple.second <| List.foldl comb ( tf, "" ) particle.pos
+
+
+plotHistory : Model -> List (Html Msg)
+plotHistory m =
+    let
+        ( w, h ) =
+            ( m.wWidth, m.wHeight )
+    in
+        List.map
+            (\( dt, t, p ) ->
+                polyline
+                    [ stroke "black"
+                    , fill "none"
+                    , stroke (gradient dt)
+                    , points (plotPath w h ( dt, t, p ))
+                    ]
+                    []
+            )
+            (( m.dt, m.t, m.part ) :: m.history)
+
+
+gradient : Time -> String
+gradient dt =
+    let
+        ( r, g, b ) =
+            ( round (255 * dt), 0, round (255 * (1 - dt)) )
+
+        col =
+            Hex.toString (256 * (256 * r + g) + b)
+    in
+        if String.length col < 6 then
+            "#" ++ String.repeat (6 - String.length col) "0" ++ col
+        else
+            "#" ++ col
