@@ -1,8 +1,8 @@
-module Main exposing (..)
+module Euler exposing (..)
 
-import Html exposing (Html, div, button, text)
+import Html exposing (Html, div, button, text, h3)
 import Html.Attributes exposing (style)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, on)
 import Time exposing (Time, second)
 import Maybe exposing (withDefault)
 import Window exposing (Size, size)
@@ -10,6 +10,8 @@ import Svg exposing (svg, circle, line, polyline)
 import Svg.Attributes exposing (width, height, stroke, x1, x2, y1, y2, cx, cy, r, points, fill)
 import Task exposing (perform)
 import Slider exposing (..)
+import Mouse
+import Json.Decode as Decode
 import Hex
 
 
@@ -29,12 +31,13 @@ main =
 type alias Model =
     { part : Particle
     , dt : Time
-    , nextDt : Time
+    , dt0 : Time
     , t : Time
     , status : Status
     , wWidth : Int
     , wHeight : Int
     , history : List ( Time, Time, Particle )
+    , drag : Maybe Drag
     }
 
 
@@ -55,6 +58,12 @@ type Status
     | Running
 
 
+type alias Drag =
+    { start : Position
+    , current : Position
+    }
+
+
 getX : Particle -> Position
 getX p =
     withDefault 0 <| List.head <| .pos p
@@ -65,18 +74,32 @@ getV p =
     withDefault 0 <| List.head <| .vel p
 
 
+getX0 : Model -> Position
+getX0 m =
+    let
+        scale x =
+            3 - 6 * x / (toFloat m.wHeight)
+    in
+        case m.drag of
+            Nothing ->
+                getX m.part
+
+            Just { start, current } ->
+                getX m.part + scale current - scale start
+
+
 
 -- INIT
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model (Particle [ 1 ] [ 0 ]) 0.5 0.5 0 Idle 0 0 [], getSize )
+    ( Model (Particle [ x0 ] [ 0 ]) 0.5 0.5 0 Idle 0 0 [] Nothing, perform GetSize size )
 
 
-getSize : Cmd Msg
-getSize =
-    perform GetSize size
+x0 : Position
+x0 =
+    2.5
 
 
 
@@ -89,7 +112,9 @@ type Msg
     | Tick Time
     | GetSize Size
     | SliderUpdate Float
-    | Drag
+    | DragStart Mouse.Position
+    | DragAt Mouse.Position
+    | DragEnd Mouse.Position
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -98,28 +123,34 @@ update msg model =
         Start ->
             ( { model
                 | status = Running
-                , part = Particle [ 2 ] [ -4 ]
                 , t = 0
-                , dt = model.nextDt
+                , dt = model.dt0
+                , drag = Nothing
               }
             , Cmd.none
             )
 
         Stop ->
-            ( { model | status = Idle }, Cmd.none )
+            ( { model
+                | status = Idle
+                , part = Particle [ x0 ] [ 0 ]
+                , t = 0
+              }
+            , Cmd.none
+            )
 
-        Tick time ->
+        Tick _ ->
             case model.status of
                 Idle ->
                     ( model, Cmd.none )
 
                 Running ->
-                    if model.t > 5 then
+                    if model.t > 5 + model.dt then
                         ( { model
                             | status = Idle
-                            , part = evolve model.part model.t model.dt
-                            , t = model.t + model.dt
+                            , part = Particle [ x0 ] [ 0 ]
                             , history = ( model.dt, model.t, model.part ) :: model.history
+                            , t = 0
                           }
                         , Cmd.none
                         )
@@ -128,22 +159,45 @@ update msg model =
                             | part = evolve model.part model.t model.dt
                             , t = model.t + model.dt
                           }
-                        , getSize
+                        , perform GetSize size
                         )
 
         GetSize s ->
-            ( { model | wWidth = s.width, wHeight = s.height }, Cmd.none )
+            ( { model | wWidth = s.width, wHeight = s.height * 8 // 10 }, Cmd.none )
 
         SliderUpdate dt ->
-            ( { model | nextDt = dt }, Cmd.none )
+            ( { model | dt0 = dt }, Cmd.none )
 
-        Drag ->
-            ( model, Cmd.none )
+        DragStart { x, y } ->
+            case model.status of
+                Idle ->
+                    ( { model | drag = Just (Drag (toFloat y) (toFloat y)) }, Cmd.none )
+
+                Running ->
+                    ( model, Cmd.none )
+
+        DragAt { x, y } ->
+            ( { model | drag = Maybe.map (\{ start } -> Drag start (toFloat y)) model.drag }
+            , Cmd.none
+            )
+
+        DragEnd _ ->
+            ( { model
+                | drag = Nothing
+                , part = Particle [ getX0 model ] [ k * getX0 model ]
+              }
+            , Cmd.none
+            )
+
+
+k : Float
+k =
+    -2
 
 
 diffEq : Position -> Velocity -> Time -> Time -> ( Position, Velocity )
 diffEq x v t dt =
-    ( x + (-2 * x) * dt, -2 * x )
+    ( x + (k * x) * dt, k * (x + (k * x) * dt) )
 
 
 evolve : Particle -> Time -> Time -> Particle
@@ -161,8 +215,12 @@ evolve p t dt =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Time.every (model.dt * second) Tick ]
+    case model.drag of
+        Nothing ->
+            Time.every (model.dt * second) Tick
+
+        Just _ ->
+            Sub.batch [ Mouse.moves DragAt, Mouse.ups DragEnd ]
 
 
 
@@ -172,14 +230,13 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div []
-        [ button [ onClick Start ] [ text "Start" ]
-        , button [ onClick Stop ] [ text "Stop" ]
-        , viewSlider
-        , div [] [ text <| "y = " ++ toString (getX model.part) ]
-        , div [] [ text <| "v = " ++ toString (getV model.part) ]
-        , div [] [ text <| "t = " ++ toString model.t ]
-        , div [ style [ ( "color", gradient model.nextDt ) ] ]
-            [ text <| "dt = " ++ toString model.nextDt ]
+        [ h3 [] [ text "Drag the ball up or down, pick a dt and click Start" ]
+        , h3 [ style [ ( "color", gradient model.dt0 ) ] ]
+            [ viewSlider
+            , text ("dt = " ++ toString model.dt0)
+            , button [ onClick Start ] [ text "Start" ]
+            , button [ onClick Stop ] [ text "Stop" ]
+            ]
         , svg
             [ width (toString model.wWidth)
             , height (toString model.wHeight)
@@ -224,9 +281,10 @@ scaleT w t =
 viewCircle : Model -> Html Msg
 viewCircle m =
     circle
-        [ cy (scaleX m.wHeight <| withDefault 0 <| List.head <| .pos <| m.part)
+        [ cy (scaleX m.wHeight (getX0 m))
         , cx (scaleT m.wWidth m.t)
         , r "10"
+        , on "mousedown" (Decode.map DragStart Mouse.position)
         ]
         []
 
