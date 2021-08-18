@@ -42,7 +42,8 @@ encode s = (tree, msg)
   mkTable (Node _ t1 t2, p) = concatMap mkTable [(t1,  Zero:p), (t2, One:p)]
 
 decode :: (Ord a) => Tree a -> [Bit] -> [a]
-decode t = path t
+decode (Leaf i a) _ = replicate i a
+decode t msg = path t msg
   where path (Leaf _ a) m            = a : path t m
         path (Node _ t1 _) (Zero: m) = path t1 m
         path (Node _ _ t2) (One: m)  = path t2 m
@@ -52,6 +53,6 @@ main = do
   let msg = "bibbity bobbity"
       (tree, encoded) = encode msg
       decoded = decode tree encoded
-  putStrLn $ "Endoding \"" ++ msg ++ "\": " ++ concatMap show encoded
+  putStrLn $ "Encoding \"" ++ msg ++ "\": " ++ concatMap show encoded
   putStrLn $ "Length: " ++ (show $ length encoded)
   putStrLn $ "Decoding: " ++ decoded
